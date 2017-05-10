@@ -49,19 +49,16 @@ public class ECGDataQuality {
     private int acceptableOutlierPercent;
     private int outlierThresholdHigh;
     private int outlierThresholdLow;
-    private int badSegmentsThreshold;
     private int ecgThresholdBandLoose;
+    private int bufferLength;
 
     private int large_stuck = 0;
     private int small_stuck = 0;
     private int large_flip = 0;
-    private int small_flip = 0;
     private int max_value = 0;
     private int min_value = 0;
     private int discontinuous = 0;
     private int segment_class = 0;
-
-    private int bad_segments = 0;
     private int amplitude_small = 0;
 
     /**
@@ -73,7 +70,11 @@ public class ECGDataQuality {
         DataPointStream ecg = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG);
         DataPointStream ecgQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_QUALITY);
 
-        ECGQualityCalculation ecgComputation = new ECGQualityCalculation(3, 50, 4500, 20, 2, 47);
+        this.acceptableOutlierPercent = AUTOSENSE.QUALITY_acceptableOutlierPercent;
+        this.outlierThresholdHigh = AUTOSENSE.QUALITY_outlierThresholdHigh;
+        this.outlierThresholdLow = AUTOSENSE.QUALITY_outlierThresholdLow;
+        this.ecgThresholdBandLoose = AUTOSENSE.QUALITY_ecgThresholdBandLoose;
+        this.bufferLength = AUTOSENSE.QUALITY_bufferLength;
 
         envelBuff = new int[bufferLength];
         classBuff = new int[bufferLength];
@@ -84,7 +85,7 @@ public class ECGDataQuality {
         envelHead = 0;
         classHead = 0;
 
-        List<DataPoint> quality = computeQuality(ecg.data, 5000); //0.67
+        List<DataPoint> quality = computeQuality(ecg.data, AUTOSENSE.QUALITY_windowSize); //0.67
 
         double count = 0;
         for (DataPoint dp : quality) {
@@ -132,7 +133,7 @@ public class ECGDataQuality {
         envelBuff[(envelHead++) % envelBuff.length] = max_value - min_value;
         classifyBuffer();
 
-        if (segment_class = AUTOSENSE.SEGMENT_BAD) {
+        if (segment_class == AUTOSENSE.SEGMENT_BAD) {
             return AUTOSENSE.QUALITY_BAND_OFF;
         } else if (2 * amplitude_small > envelBuff.length) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
@@ -143,12 +144,8 @@ public class ECGDataQuality {
     }
 
     private void classifyBuffer() {
-        bad_segments = 0;
         amplitude_small = 0;
         for (int i = 0; i < envelBuff.length; i++) {
-            if (classBuff[i] == AUTOSENSE.SEGMENT_BAD) {
-                bad_segments++;
-            }
             if (envelBuff[i] < ecgThresholdBandLoose) {
                 amplitude_small++;
             }
@@ -156,7 +153,7 @@ public class ECGDataQuality {
     }
 
     private void classifySegment(int[] data) {
-        int outliers = large_stuck + large_flip + small_stuck + small_flip+ discontinuous ;
+        int outliers = large_stuck + large_flip + small_stuck + discontinuous ;
         if (100 * outliers > acceptableOutlierPercent * data.length) {
             segment_class = AUTOSENSE.SEGMENT_BAD;
         } else {
@@ -169,7 +166,6 @@ public class ECGDataQuality {
         large_stuck=0;
         small_stuck=0;
         large_flip=0;
-        small_flip=0;
         discontinuous=0;
         max_value=data[0];
         min_value=data[0];
