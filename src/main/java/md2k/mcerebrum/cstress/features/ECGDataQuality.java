@@ -51,6 +51,7 @@ public class ECGDataQuality {
         DataPointStream ecgQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_QUALITY);
 
         ECGQualityCalculation ecgComputation = new ECGQualityCalculation(3, 50, 4500, 20, 2, 47);
+
         List<DataPoint> quality = ecgComputation.computeQuality(ecg.data, 5000); //0.67
 
         double count = 0;
