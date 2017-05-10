@@ -42,6 +42,27 @@ import java.util.List;
  * Wrapper class for ECGQualityCalculation
  */
 public class ECGDataQuality {
+    private int[] envelBuff;
+    private int envelHead;
+    private int[] classBuff;
+    private int classHead;
+    private int acceptableOutlierPercent;
+    private int outlierThresholdHigh;
+    private int outlierThresholdLow;
+    private int badSegmentsThreshold;
+    private int ecgThresholdBandLoose;
+
+    private int large_stuck = 0;
+    private int small_stuck = 0;
+    private int large_flip = 0;
+    private int small_flip = 0;
+    private int max_value = 0;
+    private int min_value = 0;
+    private int discontinuous = 0;
+    private int segment_class = 0;
+
+    private int bad_segments = 0;
+    private int amplitude_small = 0;
 
     /**
      * Constructor
@@ -115,8 +136,60 @@ public class ECGDataQuality {
             return AUTOSENSE.QUALITY_BAND_OFF;
         } else if (2 * amplitude_small > envelBuff.length) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
-        }else if(max_value - min_value <= ecgThresholdBandLoose){
-            return AUTOSENSE.QUALITY_BAND_LOOSE;;
+        }else if(max_value - min_value <= ecgThresholdBandLoose) {
+            return AUTOSENSE.QUALITY_BAND_LOOSE;
+        }
         return AUTOSENSE.QUALITY_GOOD;
+    }
+
+    private void classifyBuffer() {
+        bad_segments = 0;
+        amplitude_small = 0;
+        for (int i = 0; i < envelBuff.length; i++) {
+            if (classBuff[i] == AUTOSENSE.SEGMENT_BAD) {
+                bad_segments++;
+            }
+            if (envelBuff[i] < ecgThresholdBandLoose) {
+                amplitude_small++;
+            }
+        }
+    }
+
+    private void classifySegment(int[] data) {
+        int outliers = large_stuck + large_flip + small_stuck + small_flip+ discontinuous ;
+        if (100 * outliers > acceptableOutlierPercent * data.length) {
+            segment_class = AUTOSENSE.SEGMENT_BAD;
+        } else {
+            segment_class = AUTOSENSE.SEGMENT_GOOD;
+        }
+    }
+
+    private void classifyDataPoints(int[] data){
+        // ===========================================================
+        large_stuck=0;
+        small_stuck=0;
+        large_flip=0;
+        small_flip=0;
+        discontinuous=0;
+        max_value=data[0];
+        min_value=data[0];
+        for(int i=0;i<data.length;i++){
+            int im=((i==0)?(data.length-1):(i-1));
+            int ip=((i==data.length-1)?(0):(i+1));
+            boolean stuck=((data[i]==data[im])&&(data[i]==data[ip]));
+            boolean flip=((Math.abs(data[i]-data[im])>4000)||(Math.abs(data[i]-data[ip])>4000));
+            boolean disc=((Math.abs(data[i]-data[im])>100)||(Math.abs(data[i]-data[ip])>100));
+            if(disc) discontinuous++;
+            else if(stuck) large_stuck++;
+            else if(flip) large_flip++;
+            else if(data[i]>=outlierThresholdHigh){
+                large_stuck++;
+            }else if(data[i]<=outlierThresholdLow){
+                small_stuck++;
+            }else{
+                if(data[i]>max_value) max_value=data[i];
+                if(data[i]<min_value) min_value=data[i];
+            }
+        }
     }
 }
