@@ -29,11 +29,13 @@ package md2k.mcerebrum.cstress.features;
 
 import md2k.mcerebrum.cstress.StreamConstants;
 import md2k.mcerebrum.cstress.autosense.AUTOSENSE;
+import md2k.mcerebrum.cstress.library.Time;
 import md2k.mcerebrum.cstress.library.dataquality.autosense.ECGQualityCalculation;
 import md2k.mcerebrum.cstress.library.datastream.DataPointStream;
 import md2k.mcerebrum.cstress.library.datastream.DataStreams;
 import md2k.mcerebrum.cstress.library.structs.DataPoint;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,7 +54,16 @@ public class ECGDataQuality {
 
         ECGQualityCalculation ecgComputation = new ECGQualityCalculation(3, 50, 4500, 20, 2, 47);
 
-        List<DataPoint> quality = ecgComputation.computeQuality(ecg.data, 5000); //0.67
+        envelBuff = new int[bufferLength];
+        classBuff = new int[bufferLength];
+        for (int i = 0; i < bufferLength; i++) {
+            envelBuff[i] = 2 * ecgThresholdBandLoose;
+            classBuff[i] = 0;
+        }
+        envelHead = 0;
+        classHead = 0;
+
+        List<DataPoint> quality = computeQuality(ecg.data, 5000); //0.67
 
         double count = 0;
         for (DataPoint dp : quality) {
@@ -70,5 +81,42 @@ public class ECGDataQuality {
             ecgWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_BAD));
 
 
+    }
+
+    private List<DataPoint> computeQuality(List<DataPoint> ecg, long windowSize) {
+
+        List<DataPoint[]> windowedECG = Time.window(ecg, windowSize);
+        List<DataPoint> result = new ArrayList<DataPoint>();
+
+        for (DataPoint[] dpA : windowedECG) {
+            int[] data = new int[dpA.length];
+            int i = 0;
+            for (DataPoint s : dpA) {
+                data[i++] = (int) s.value;
+            }
+            if (data.length > 0) {
+                result.add(new DataPoint(dpA[0].timestamp, currentQuality(data)));
+            }
+        }
+
+
+        return result;
+
+    }
+    private int currentQuality(int[] data) {
+        classifyDataPoints(data);
+        classifySegment(data);
+
+        classBuff[(classHead++) % classBuff.length] = segment_class;
+        envelBuff[(envelHead++) % envelBuff.length] = max_value - min_value;
+        classifyBuffer();
+
+        if (segment_class = AUTOSENSE.SEGMENT_BAD) {
+            return AUTOSENSE.QUALITY_BAND_OFF;
+        } else if (2 * amplitude_small > envelBuff.length) {
+            return AUTOSENSE.QUALITY_BAND_LOOSE;
+        }else if(max_value - min_value <= ecgThresholdBandLoose){
+            return AUTOSENSE.QUALITY_BAND_LOOSE;;
+        return AUTOSENSE.QUALITY_GOOD;
     }
 }
