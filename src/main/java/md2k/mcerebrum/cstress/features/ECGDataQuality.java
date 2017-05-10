@@ -30,7 +30,6 @@ package md2k.mcerebrum.cstress.features;
 import md2k.mcerebrum.cstress.StreamConstants;
 import md2k.mcerebrum.cstress.autosense.AUTOSENSE;
 import md2k.mcerebrum.cstress.library.Time;
-import md2k.mcerebrum.cstress.library.dataquality.autosense.ECGQualityCalculation;
 import md2k.mcerebrum.cstress.library.datastream.DataPointStream;
 import md2k.mcerebrum.cstress.library.datastream.DataStreams;
 import md2k.mcerebrum.cstress.library.structs.DataPoint;
@@ -108,7 +107,7 @@ public class ECGDataQuality {
     private List<DataPoint> computeQuality(List<DataPoint> ecg, long windowSize) {
 
         List<DataPoint[]> windowedECG = Time.window(ecg, windowSize);
-        List<DataPoint> result = new ArrayList<DataPoint>();
+        List<DataPoint> result = new ArrayList<>();
 
         for (DataPoint[] dpA : windowedECG) {
             int[] data = new int[dpA.length];
