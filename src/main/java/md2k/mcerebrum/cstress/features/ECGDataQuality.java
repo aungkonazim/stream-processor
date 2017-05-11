@@ -41,50 +41,43 @@ import java.util.List;
  * Wrapper class for ECGQualityCalculation
  */
 public class ECGDataQuality {
-    private int[] envelBuff;
-    private int envelHead;
-    private int[] classBuff;
-    private int classHead;
-    private int acceptableOutlierPercent;
-    private int outlierThresholdHigh;
-    private int outlierThresholdLow;
-    private int ecgThresholdBandLoose;
-    private int bufferLength;
 
-    private int large_stuck = 0;
-    private int small_stuck = 0;
-    private int large_flip = 0;
-    private int max_value = 0;
-    private int min_value = 0;
-    private int discontinuous = 0;
-    private int segment_class = 0;
-    private int amplitude_small = 0;
-
+    public ECGDataQuality(DataStreams datastreams, double qualityThreshold) {
+        this(datastreams,
+                qualityThreshold,
+                AUTOSENSE.QUALITY_acceptableOutlierPercent,
+                AUTOSENSE.QUALITY_outlierThresholdHigh,
+                AUTOSENSE.QUALITY_outlierThresholdLow,
+                AUTOSENSE.QUALITY_ecgThresholdBandLoose,
+                AUTOSENSE.QUALITY_bufferLength,
+                AUTOSENSE.QUALITY_windowSizeEcg);
+    }
     /**
      * Constructor
      * @param datastreams Global datastream object
      * @param qualityThreshold Input quality threshold
      */
-    public ECGDataQuality(DataStreams datastreams, double qualityThreshold) {
+    public ECGDataQuality(DataStreams datastreams,
+                          double qualityThreshold,
+                          double acceptableOutlierPercent,
+                          double outlierThresholdHigh,
+                          double outlierThresholdLow,
+                          double ecgThresholdBandLoose,
+                          int bufferLength,
+                          int windowSizeEcg){
+
         DataPointStream ecg = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG);
         DataPointStream ecgQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_QUALITY);
 
-        this.acceptableOutlierPercent = AUTOSENSE.QUALITY_acceptableOutlierPercent;
-        this.outlierThresholdHigh = AUTOSENSE.QUALITY_outlierThresholdHigh;
-        this.outlierThresholdLow = AUTOSENSE.QUALITY_outlierThresholdLow;
-        this.ecgThresholdBandLoose = AUTOSENSE.QUALITY_ecgThresholdBandLoose;
-        this.bufferLength = AUTOSENSE.QUALITY_bufferLength;
-
-        envelBuff = new int[bufferLength];
-        classBuff = new int[bufferLength];
-        for (int i = 0; i < bufferLength; i++) {
-            envelBuff[i] = 2 * ecgThresholdBandLoose;
-            classBuff[i] = 0;
-        }
-        envelHead = 0;
-        classHead = 0;
-
-        List<DataPoint> quality = computeQuality(ecg.data, AUTOSENSE.QUALITY_windowSize); //0.67
+        DataPointStream ecgRange = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_RANGE);
+        ecgRange.setHistoricalBufferSize(bufferLength);
+        List<DataPoint> quality = computeQuality(ecg.data,
+                                                ecgRange,
+                                                windowSizeEcg,
+                                                acceptableOutlierPercent,
+                                                outlierThresholdHigh,
+                                                outlierThresholdLow,
+                                                ecgThresholdBandLoose); //0.67
 
         double count = 0;
         for (DataPoint dp : quality) {
@@ -104,87 +97,100 @@ public class ECGDataQuality {
 
     }
 
-    private List<DataPoint> computeQuality(List<DataPoint> ecg, long windowSize) {
+    private List<DataPoint> computeQuality(List<DataPoint> ecg,
+                                           DataPointStream ecgRange,
+                                           int windowSizeEcg,
+                                           double acceptableOutlierPercent,
+                                           double outlierThresholdHigh,
+                                           double outlierThresholdLow,
+                                           double ecgThresholdBandLoose){
 
-        List<DataPoint[]> windowedECG = Time.window(ecg, windowSize);
+        List<DataPoint[]> windowedECG = Time.window(ecg, windowSizeEcg);
         List<DataPoint> result = new ArrayList<>();
 
         for (DataPoint[] dpA : windowedECG) {
-            int[] data = new int[dpA.length];
-            int i = 0;
-            for (DataPoint s : dpA) {
-                data[i++] = (int) s.value;
-            }
-            if (data.length > 0) {
-                result.add(new DataPoint(dpA[0].timestamp, currentQuality(data)));
+            if (dpA.length > 0) {
+                result.add(new DataPoint(dpA[0].timestamp, currentQuality(dpA,ecgRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ecgThresholdBandLoose)));
             }
         }
-
-
         return result;
 
     }
-    private int currentQuality(int[] data) {
-        classifyDataPoints(data);
-        classifySegment(data);
+    private int currentQuality(DataPoint[] data,
+                               DataPointStream ecgRange,
+                               double acceptableOutlierPercent,
+                               double outlierThresholdHigh,
+                               double outlierThresholdLow,
+                               double ecgThresholdBandLoose) {
 
-        classBuff[(classHead++) % classBuff.length] = segment_class;
-        envelBuff[(envelHead++) % envelBuff.length] = max_value - min_value;
-        classifyBuffer();
+        int[] outlierCounts = classifyDataPoints(data,outlierThresholdHigh,outlierThresholdLow);
+        int segmentClass = classifySegment(data,outlierCounts,acceptableOutlierPercent);
+        ecgRange.add(new DataPoint(data[0].timestamp,(double)(outlierCounts[1]-outlierCounts[2])));
 
-        if (segment_class == AUTOSENSE.SEGMENT_BAD) {
+        List<DataPoint> rangeValues = ecgRange.getHistoricalNValues(3);
+        int amplitudeSmall = classifyBuffer(rangeValues,ecgThresholdBandLoose);
+
+        if (segmentClass == AUTOSENSE.SEGMENT_BAD) {
             return AUTOSENSE.QUALITY_BAND_OFF;
-        } else if (2 * amplitude_small > envelBuff.length) {
+        } else if (2 * amplitudeSmall > data.length) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
-        }else if(max_value - min_value <= ecgThresholdBandLoose) {
+        }else if((outlierCounts[1]-outlierCounts[2]) <= (int)(ecgThresholdBandLoose*AUTOSENSE.ADC_range)) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
         }
         return AUTOSENSE.QUALITY_GOOD;
     }
 
-    private void classifyBuffer() {
-        amplitude_small = 0;
-        for (int i = 0; i < envelBuff.length; i++) {
-            if (envelBuff[i] < ecgThresholdBandLoose) {
-                amplitude_small++;
+    private int classifyBuffer(List<DataPoint> rangeValues, double ecgThresholdBandLoose) {
+        int amplitudeSmall =0;
+        if (rangeValues.size() < 3){
+            amplitudeSmall = 0;
+            return amplitudeSmall;
+        }else {
+            for (int i = 1; i < rangeValues.size(); i++) {
+                if ( rangeValues.get(i).value < ecgThresholdBandLoose*AUTOSENSE.ADC_range) {
+                    amplitudeSmall++;
+                }
             }
+            return amplitudeSmall;
         }
     }
 
-    private void classifySegment(int[] data) {
-        int outliers = large_stuck + large_flip + small_stuck + discontinuous ;
-        if (100 * outliers > acceptableOutlierPercent * data.length) {
-            segment_class = AUTOSENSE.SEGMENT_BAD;
+    private int classifySegment(DataPoint[] data, int[] outlierCounts,double acceptableOutlierPercent) {
+        int segmentClass;
+        if (outlierCounts[0] > acceptableOutlierPercent * data.length) {
+            segmentClass = AUTOSENSE.SEGMENT_BAD;
         } else {
-            segment_class = AUTOSENSE.SEGMENT_GOOD;
+            segmentClass = AUTOSENSE.SEGMENT_GOOD;
         }
+        return segmentClass;
     }
 
-    private void classifyDataPoints(int[] data){
-        // ===========================================================
-        large_stuck=0;
-        small_stuck=0;
-        large_flip=0;
-        discontinuous=0;
-        max_value=data[0];
-        min_value=data[0];
+    private int[] classifyDataPoints(DataPoint[] data,
+                                     double outlierThresholdHigh,
+                                     double outlierThresholdLow){
+
+        int[] outlierCounts = new int[3];// index 0 = outlier sum, index 1 = max value,index 2 = min value
+
+        outlierCounts[1]=(int)data[0].value;
+        outlierCounts[2]=(int)data[0].value;
         for(int i=0;i<data.length;i++){
             int im=((i==0)?(data.length-1):(i-1));
             int ip=((i==data.length-1)?(0):(i+1));
-            boolean stuck=((data[i]==data[im])&&(data[i]==data[ip]));
-            boolean flip=((Math.abs(data[i]-data[im])>4000)||(Math.abs(data[i]-data[ip])>4000));
-            boolean disc=((Math.abs(data[i]-data[im])>100)||(Math.abs(data[i]-data[ip])>100));
-            if(disc) discontinuous++;
-            else if(stuck) large_stuck++;
-            else if(flip) large_flip++;
-            else if(data[i]>=outlierThresholdHigh){
-                large_stuck++;
-            }else if(data[i]<=outlierThresholdLow){
-                small_stuck++;
+            boolean stuck=((data[i].value==data[im].value)&&(data[i].value==data[ip].value));
+            boolean flip=((Math.abs(data[i].value-data[im].value)>((int)(outlierThresholdHigh*AUTOSENSE.ADC_range)))||(Math.abs(data[i].value-data[ip].value)>((int)(outlierThresholdHigh*AUTOSENSE.ADC_range))));
+            boolean disc=((Math.abs(data[i].value-data[im].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range)))||(Math.abs(data[i].value-data[ip].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range))));
+            if(disc) outlierCounts[0]++;
+            else if(stuck) outlierCounts[0]++;
+            else if(flip) outlierCounts[0]++;
+            else if(data[i].value >= outlierThresholdHigh*AUTOSENSE.ADC_range){
+                outlierCounts[0]++;
+            }else if(data[i].value <= outlierThresholdLow*AUTOSENSE.ADC_range){
+                outlierCounts[0]++;
             }else{
-                if(data[i]>max_value) max_value=data[i];
-                if(data[i]<min_value) min_value=data[i];
+                if(data[i].value > outlierCounts[1]) outlierCounts[1]=(int)data[i].value;
+                if(data[i].value < outlierCounts[2]) outlierCounts[2]=(int)data[i].value;
             }
         }
+        return outlierCounts;
     }
 }
