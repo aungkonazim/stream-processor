@@ -132,7 +132,7 @@ public class ECGDataQuality {
 
         if (segmentClass == AUTOSENSE.SEGMENT_BAD) {
             return AUTOSENSE.QUALITY_BAND_OFF;
-        } else if (2 * amplitudeSmall > data.length) {
+        } else if (2 * amplitudeSmall > AUTOSENSE.QUALITY_bufferLength) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
         }else if((outlierCounts[1]-outlierCounts[2]) <= (int)(ecgThresholdBandLoose*AUTOSENSE.ADC_range)) {
             return AUTOSENSE.QUALITY_BAND_LOOSE;
