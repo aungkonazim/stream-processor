@@ -146,7 +146,7 @@ public class ECGDataQuality {
             amplitudeSmall = 0;
             return amplitudeSmall;
         }else {
-            for (int i = 1; i < rangeValues.size(); i++) {
+            for (int i = 0; i < rangeValues.size(); i++) {
                 if ( rangeValues.get(i).value < ecgThresholdBandLoose*AUTOSENSE.ADC_range) {
                     amplitudeSmall++;
                 }
