@@ -157,7 +157,7 @@ public class ECGDataQuality {
 
     private int classifySegment(DataPoint[] data, int[] outlierCounts,double acceptableOutlierPercent) {
         int segmentClass;
-        if (outlierCounts[0] > acceptableOutlierPercent * data.length) {
+        if (outlierCounts[0] > (int)(acceptableOutlierPercent * data.length)) {
             segmentClass = AUTOSENSE.SEGMENT_BAD;
         } else {
             segmentClass = AUTOSENSE.SEGMENT_GOOD;
@@ -178,7 +178,7 @@ public class ECGDataQuality {
             int ip=((i==data.length-1)?(0):(i+1));
             boolean stuck=((data[i].value==data[im].value)&&(data[i].value==data[ip].value));
             boolean flip=((Math.abs(data[i].value-data[im].value)>((int)(outlierThresholdHigh*AUTOSENSE.ADC_range)))||(Math.abs(data[i].value-data[ip].value)>((int)(outlierThresholdHigh*AUTOSENSE.ADC_range))));
-            boolean disc=((Math.abs(data[i].value-data[im].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range)))||(Math.abs(data[i].value-data[ip].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range))));
+            boolean disc=((Math.abs(data[i].value-data[im].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range)))&& (Math.abs(data[i].value-data[ip].value)>((int)(AUTOSENSE.QUALITY_ecgSlope*AUTOSENSE.ADC_range))));
             if(disc) outlierCounts[0]++;
             else if(stuck) outlierCounts[0]++;
             else if(flip) outlierCounts[0]++;
