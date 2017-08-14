@@ -171,5 +171,6 @@ public class StreamConstants {
     public static final String ORG_MD2K_CSTRESS_STRESS_EPISODE_START = "org.md2k.cstress.stress.episode.start";
     public static final String ORG_MD2K_CSTRESS_STRESS_EPISODE_PEAK = "org.md2k.cstress.stress.episode.peak";
     public static final String ORG_MD2K_CSTRESS_STRESS_EPISODE_END = "org.md2k.cstress.stress.episode.end";
-
+    public static final String ORG_MD2K_CSTRESS_DATA_ECG_RANGE = "org.md2k.cstress.data.ecg.range";
+    public static final String ORG_MD2K_CSTRESS_DATA_RIP_RANGE = "org.md2k.cstress.data.rip.range";
 }
