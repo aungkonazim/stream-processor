@@ -57,7 +57,7 @@ public class AUTOSENSE {
 
     public static final double QUALITY_ecgSlope = .02443;
     public static final int QUALITY_windowSizeEcg = 2000;
-    public static final double QUALITY_ecgThresholdBandLoose = .01148;
+    public static final double QUALITY_ecgThresholdBandLoose = .02442;
 
     public static final double QUALITY_ripSlope = .0733;
     public static final int QUALITY_windowSizeRip = 4000;

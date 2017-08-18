@@ -87,12 +87,12 @@ public class ECGDataQuality {
             }
         }
 
-        DataPointStream ecgWindowQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_WINDOW_QUALITY);
-
-        if ((count / quality.size()) > qualityThreshold)
-            ecgWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_GOOD));
-        else
-            ecgWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_BAD));
+//        DataPointStream ecgWindowQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_ECG_WINDOW_QUALITY);
+//
+//        if ((count / quality.size()) > qualityThreshold)
+//            ecgWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_GOOD));
+//        else
+//            ecgWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_BAD));
 
 
     }
@@ -110,7 +110,10 @@ public class ECGDataQuality {
 
         for (DataPoint[] dpA : windowedECG) {
             if (dpA.length > 0) {
-                result.add(new DataPoint(dpA[0].timestamp, currentQuality(dpA,ecgRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ecgThresholdBandLoose)));
+                int q = currentQuality(dpA,ecgRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ecgThresholdBandLoose);
+                for (DataPoint dp: dpA) {
+                    result.add(new DataPoint(dpA[0].timestamp,q));
+                }
             }
         }
         return result;
