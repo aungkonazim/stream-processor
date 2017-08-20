@@ -112,7 +112,7 @@ public class ECGDataQuality {
             if (dpA.length > 0) {
                 int q = currentQuality(dpA,ecgRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ecgThresholdBandLoose);
                 for (DataPoint dp: dpA) {
-                    result.add(new DataPoint(dpA[0].timestamp,q));
+                    result.add(new DataPoint(dp.timestamp,q));
                 }
             }
         }
