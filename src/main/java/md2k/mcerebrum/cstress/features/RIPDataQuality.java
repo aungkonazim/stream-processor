@@ -87,12 +87,12 @@ public class RIPDataQuality {
             }
         }
 
-        DataPointStream ripWindowQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_RIP_WINDOW_QUALITY);
-
-        if ((count / quality.size()) > qualityThreshold)
-            ripWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_GOOD));
-        else
-            ripWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_BAD));
+//        DataPointStream ripWindowQuality = datastreams.getDataPointStream(StreamConstants.ORG_MD2K_CSTRESS_DATA_RIP_WINDOW_QUALITY);
+//
+//        if ((count / quality.size()) > qualityThreshold)
+//            ripWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_GOOD));
+//        else
+//            ripWindowQuality.add(new DataPoint(quality.get(0).timestamp, AUTOSENSE.QUALITY_BAD));
 
 
     }
@@ -110,7 +110,10 @@ public class RIPDataQuality {
 
         for (DataPoint[] dpA : windowedRIP) {
             if (dpA.length > 0) {
-                result.add(new DataPoint(dpA[0].timestamp, currentQuality(dpA,ripRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ripThresholdBandLoose)));
+                int q = currentQuality(dpA,ripRange,acceptableOutlierPercent,outlierThresholdHigh,outlierThresholdLow,ripThresholdBandLoose);
+                for (DataPoint dp: dpA) {
+                    result.add(new DataPoint(dp.timestamp,q));
+                }
             }
         }
         return result;
